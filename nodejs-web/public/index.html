@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Segmentation Analysis</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="container">
+        <h1>피부노화 세포 현미경 이미지 분석기</h1>
+        <p>이 분석기는 염색된 피부 세포를 기반으로 학습되어 예시와 유사한 이미지를 넣어주세요</p>
+        <button id="exampleImageBtn" class="example-button">예시 이미지 보기</button>
+
+        <form id="uploadForm" class="form-container">
+            <input type="file" name="image" accept="image/*" required>
+            
+            <div class="input-container">
+                <div class="pixel-to-real-container">
+                    <label for="pixelToReal">픽셀 당 실제 길이:</label>
+                    <input type="number" id="pixelToReal" name="pixelToReal" placeholder="2.2" step="0.01">
+                    <select id="unit" name="unit">
+                        <option value="um">µm</option>
+                        <option value="nm">nm</option>
+                        <option value="mm">mm</option>
+                    </select>
+                    <input type="checkbox" id="noPixelReal" name="noPixelReal">
+                    <label for="noPixelReal">선택하지 않음</label>
+                </div>
+                <button type="submit">분석하기</button>
+            </div>
+        </form>
+
+        <div id="results" class="results-container">
+            <div class="image-container">
+                <div class="image-box">
+                    <p>원본 이미지:</p>
+                    <img id="originalImage" src="" alt="Original Image">
+                </div>
+                <div class="image-box">
+                    <p>검출 결과 이미지:</p>
+                    <img id="segmentedImage" src="" alt="Segmented Image">
+                </div>
+            </div>
+            <p>노화 세포의 개수: <span id="instanceCount"></span></p>
+            <p>면적 비율: <span id="areaCoverage"></span>%</p>
+            <p id="realAreaContainer" style="display:none;">실제 면적: <span id="realArea"></span></p>
+        </div>
+    </div>
+
+    <!-- 예시 이미지 팝업 -->
+    <div id="examplePopup" class="popup">
+        <div class="popup-content">
+            <span class="close-btn">&times;</span>
+            <h2>예시 이미지</h2>
+            <div id="exampleImages" class="example-images"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('noPixelReal').addEventListener('change', function () {
+            const isChecked = this.checked;
+            document.getElementById('pixelToReal').disabled = isChecked;
+            document.getElementById('unit').disabled = isChecked;
+        });
+
+        document.getElementById('uploadForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const formData = new FormData();
+            const fileInput = document.querySelector('input[type="file"]');
+            formData.append('image', fileInput.files[0]);
+
+            // 픽셀 당 실제 길이 값을 가져와서 추가 (만약 선택하지 않음이 선택되지 않았다면)
+            const noPixelReal = document.getElementById('noPixelReal').checked;
+            let unit = 'µm'; // 기본 단위는 µm로 설정
+            if (!noPixelReal) {
+                const pixelToReal = document.getElementById('pixelToReal').value;
+                unit = document.getElementById('unit').value;
+                formData.append('pixelToReal', pixelToReal);
+                formData.append('unit', unit);
+            }
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+
+                    // 서버에서 상대 경로를 사용하여 이미지를 표시
+                    const originalImgPath = `/uploads/${encodeURIComponent(fileInput.files[0].name)}`;
+                    const segmentedImgPath = `/${result.result_img_path}`;
+                    
+                    // Displaying results
+                    document.getElementById('originalImage').src = originalImgPath;
+                    document.getElementById('segmentedImage').src = segmentedImgPath;
+                    document.getElementById('instanceCount').textContent = result.instance_count;
+                    document.getElementById('areaCoverage').textContent = result.area_coverage.toFixed(2);
+
+                    // 실제 면적 값이 있는 경우 출력, 그렇지 않으면 숨김 상태 유지
+                    if (result.real_area) {
+                        document.getElementById('realArea').textContent = result.real_area;
+                        document.getElementById('realAreaContainer').style.display = 'block';
+                    } else {
+                        document.getElementById('realAreaContainer').style.display = 'none';
+                    }
+                } else {
+                    document.getElementById('results').innerHTML = '<p>Segmentation failed.</p>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('results').innerHTML = '<p>There was an error processing the image.</p>';
+            }
+        });
+
+        // 예시 이미지 팝업 기능
+        document.getElementById('exampleImageBtn').addEventListener('click', async function () {
+            const popup = document.getElementById('examplePopup');
+            const exampleImagesContainer = document.getElementById('exampleImages');
+            exampleImagesContainer.innerHTML = ''; // Clear previous images
+
+            try {
+                const response = await fetch('/sample-images');
+                if (response.ok) {
+                    const images = await response.json();
+                    images.forEach(img => {
+                        const imgElement = document.createElement('img');
+                        imgElement.src = `/sample/${img}`;
+                        imgElement.alt = img;
+                        imgElement.className = 'sample-image';
+                        exampleImagesContainer.appendChild(imgElement);
+                    });
+                }
+                popup.style.display = 'block';
+            } catch (error) {
+                console.error('Error loading example images:', error);
+            }
+        });
+
+        document.querySelector('.close-btn').addEventListener('click', function () {
+            document.getElementById('examplePopup').style.display = 'none';
+        });
+    </script>
+</body>
+</html>

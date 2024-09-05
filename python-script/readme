@@ -1,0 +1,24 @@
+# This project need conda or python environment
+- Environment commands
+- This is for MacOS Environment
+$ conda create -n yolov8 python=3.8
+$ conda activate yolov8
+$ pip3 install torch torchvision torchaudio
+$ pip install ultralytics
+$ git clone https://github.com/ultralytics/ultralytics.git
+
+# Source code explanation
+1. make_data.py
+- transform json file to appropriate form of txt
+
+2. train.py
+- train skin-cell images with yolov8 pretrained model(fine-tuning)
+
+3. predict.py
+- predict test image with trained model
+
+4. vis.py
+- visualize the test image from the prediction result
+
+5. run_segmentation.py
+- This code is main code for executing overall process(predict.py and vis.py) with nodejs
